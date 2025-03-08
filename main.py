@@ -1,10 +1,11 @@
 import os
 import shutil
 from config import patients_folder as PF, generated_outputs as GO, lifeStyle_template as LT
-from small_changes.change_SequencingDetails import replace_text_in_ppt
+from text_changes.change_SequencingDetails import replace_text_in_ppt
+from image_changes.parallelograms_imageChanges import insert_parallelogram_images
 
 # Define patient names to process
-selected_patients = ["KHGLBS782"]  # Add more patient codes if needed
+selected_patients = ["KHGLBS782"]
 
 
 def copy_template_ppt(target_path):
@@ -33,6 +34,8 @@ def generate_reports():
 
                 # Step 2: Process text replacement using change_SequencingDetails.py
                 replace_text_in_ppt(json_path, output_ppt_path, output_ppt_path)
+
+                insert_parallelogram_images(patient_code)
 
                 print(f"\n✅ Report generated: {output_ppt_path}")
 
