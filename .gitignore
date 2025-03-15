@@ -1,6 +1,7 @@
 /assets/
-/idea/
+/.idea/
 /patients/
-/venv/
+/.venv/
 /Generated Outputs/
 /Tests/
+__pycache__/

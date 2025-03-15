@@ -37,7 +37,7 @@ def generate_reports():
 
                 insert_parallelogram_images(patient_code)
 
-                print(f"\n✅ Report generated: {output_ppt_path}")
+                print(f"\n✅ Report generated: {output_ppt_path}\n")
 
 
 # Execute the process
