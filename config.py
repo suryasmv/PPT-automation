@@ -1,9 +1,21 @@
-patients_folder = r"M:\Kavya Project\LifeStyleAutomation-v1\patients"
+patients_folder = ""
 
-lifeStyle_template = r"M:\Kavya Project\LifeStyleAutomation-v1\assets\lifestyle_version2.pptx"
+lifeStyle_template = ""
 
-generated_outputs = r"M:\Kavya Project\LifeStyleAutomation-v1\Generated Outputs"
+generated_outputs = ""
 
-scoring_charts = r"M:\Kavya Project\Regular&ScoringCharts\ScoringCharts"
+scoring_charts = ""
 
-input_parallelograms = r"M:\Kavya Project\LifeStyleAutomation-v1\assets\lifestyleinputs\parallelograms"
+input_parallelograms = "" 
+
+RECOMMENDATIONS_FILE = ""
+
+FIRST_TEXT_FILE = ""
+
+DIET_FILE = ""
+
+DIET_PICTURES = ""
+
+VITAMIN_SHEET_FILE = ""
+
+GENERATED_OUTPUTS = ""

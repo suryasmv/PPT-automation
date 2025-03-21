@@ -4,7 +4,7 @@ from pptx import Presentation
 from pptx.util import Cm
 from pptx.oxml.ns import qn
 from pptx.oxml import parse_xml
-from config import scoring_charts, input_parallelograms, generated_outputs as GO
+from config import scoring_charts, input_parallelograms, generated_outputs as GO, RECOMMENDATIONS_FILE, FIRST_TEXT_FILE
 
 # Image sizes
 IMAGE_SIZES = {
@@ -23,6 +23,10 @@ TEXT_BOX_PARAMS = {
     "Mild": [
         (Cm(1.32), Cm(15.38), Cm(2.8), Cm(1.27)),  # 1st text box
         (Cm(2.56), Cm(9.89), Cm(2.8), Cm(3.53))  # 2nd text box (Recommendations)
+    ],
+    "Moderate to High": [
+        (Cm(1.32), Cm(15.38), Cm(2.8), Cm(1.60)),  # 1st text box
+        (Cm(4.1), Cm(9.96), Cm(2.8), Cm(3.80))  # 2nd text box (Recommendations)
     ]
 }
 
@@ -34,8 +38,6 @@ SPACING = Cm(0.5)
 START_SLIDE_INDEX = 8
 END_SLIDE_INDEX = 29
 SEVERITY_ORDER = ["Moderate to High", "Moderate", "Mild", "Low"]  # Priority order
-RECOMMENDATIONS_FILE = r"M:\\Kavya Project\\LifeStyleAutomation-v1\\assets\\Medical_Recommendations_sheet.xlsx"
-FIRST_TEXT_FILE = r"M:\\Kavya Project\\LifeStyleAutomation-v1\\assets\\Medical_First_Text_sheet.xlsx"
 
 BOLD_WORDS = ['Moderate', 'Mild', 'Moderate to High']
 
@@ -49,13 +51,23 @@ def find_scoring_chart(patient_id):
 
 def extract_severity_conditions(excel_path):
     df = pd.read_excel(excel_path)
-    results = []
-    for severity in SEVERITY_ORDER:
-        for _, row in df.iterrows():
+    concern_conditions = []
+    other_conditions = []
+
+    for _, row in df.iterrows():
+        condition_name = row["Medical Condition "].replace(" ", "_")
+        is_concern = str(row.get("concerns", "")).strip().lower() == 'y'
+
+        for severity in SEVERITY_ORDER:
             if severity in df.columns and str(row.get(severity, '')).strip().lower() == 'y':
-                condition_name = row["Medical Condition "].replace(" ", "_")
-                results.append((severity, condition_name))
-    return results
+                if is_concern:
+                    concern_conditions.append((severity, condition_name))
+                else:
+                    other_conditions.append((severity, condition_name))
+    
+    print("Concern Conditions:", concern_conditions)
+    print("Other Conditions:", other_conditions)
+    return concern_conditions, other_conditions
 
 
 def find_condition_image(severity, condition):
@@ -104,26 +116,6 @@ def add_text_with_formatting(text_frame, text):
         if word.strip(',') in BOLD_WORDS:
             run.font.bold = True
 
-def has_content(slide):
-    """Checks if a slide contains any shapes (images or textboxes) in the valid area."""
-    for shape in slide.shapes:
-        if hasattr(shape, "left") and START_Y <= shape.top <= MAX_Y:
-            return True
-    return False
-
-def delete_empty_slides(output_ppt_path):
-    """Deletes empty slides in the range 9-30 if they have no images or textboxes within the valid area."""
-    prs = Presentation(output_ppt_path)
-    empty_slide_indexes = [i for i in range(START_SLIDE_INDEX, END_SLIDE_INDEX + 1) if not has_content(prs.slides[i])]
-
-    if empty_slide_indexes:
-        for i in sorted(empty_slide_indexes, reverse=True):
-            xml_slides = prs.slides._sldIdLst
-            xml_slides.remove(xml_slides[i])
-        prs.save(output_ppt_path)
-        print(f"✅ Empty Parallelogram slides deleted in the range 9 to 30 => {empty_slide_indexes}")
-    else:
-        print(f"✅ No empty Parallelogram slides found in the range 9 to 30.")
 
 def insert_parallelogram_images(patient_id):
     output_ppt_path = os.path.join(GO, f"{patient_id}_report.pptx")
@@ -137,60 +129,66 @@ def insert_parallelogram_images(patient_id):
         print(f"❌ No scoring chart found for patient {patient_id}")
         return
 
-    conditions = extract_severity_conditions(scoring_chart)
-    if not conditions:
+    concern_conditions, other_conditions = extract_severity_conditions(scoring_chart)
+    if not concern_conditions and not other_conditions:
         print(f"⚠️ No conditions found for patient {patient_id}")
         return
 
-    current_slide_index = START_SLIDE_INDEX
-    current_y = START_Y
-    slide = prs.slides[current_slide_index]
+    def insert_conditions(conditions, slide_index, start_y):
+        current_y = start_y
+        slide = prs.slides[slide_index]
 
-    for severity in SEVERITY_ORDER:
-        for condition_severity, condition in conditions:
-            if condition_severity == severity:
-                image_path = find_condition_image(severity, condition)
-                if not image_path:
-                    print(f"❌ Image not found for {condition} ({severity})")
-                    continue
+        # Sort conditions by severity order
+        conditions.sort(key=lambda x: SEVERITY_ORDER.index(x[0]))
 
-                img_height, img_width = IMAGE_SIZES[severity]
-                if current_y + img_height > MAX_Y:
-                    if current_slide_index < END_SLIDE_INDEX:
-                        current_slide_index += 1
-                        slide = prs.slides[current_slide_index]
-                        current_y = START_Y
-                    else:
-                        print("⚠️ Slide limit reached, stopping image insertion.")
-                        break
+        for severity, condition in conditions:
+            image_path = find_condition_image(severity, condition)
+            if not image_path:
+                print(f"❌ Image not found for {condition} ({severity})")
+                continue
 
-                slide.shapes.add_picture(image_path, START_X, current_y, width=img_width, height=img_height)
+            img_height, img_width = IMAGE_SIZES[severity]
+            if current_y + img_height > MAX_Y:
+                slide_index += 1
+                if slide_index > END_SLIDE_INDEX:
+                    print("⚠️ Slide limit reached, stopping image insertion.")
+                    break
+                slide = prs.slides[slide_index]
+                current_y = START_Y
 
-                if severity in TEXT_BOX_PARAMS:
-                    for i, (tb_h, tb_w, hp, vp) in enumerate(TEXT_BOX_PARAMS[severity]):
-                        text_box = slide.shapes.add_textbox(START_X + hp, current_y + vp, tb_w, tb_h)
-                        text_frame = text_box.text_frame
-                        text_frame.clear()  # Clear default placeholder text
+            slide.shapes.add_picture(image_path, START_X, current_y, width=img_width, height=img_height)
 
-                        if i == 0:  # First text box
-                            first_text = extract_first_text(condition, severity)
-                            add_text_with_formatting(text_frame, first_text)
-                        elif i == 1:  # Recommendation text box
-                            recommendations = extract_recommendations(condition, severity)
-                            for idx, rec in enumerate(recommendations.split('\n')):
-                                if idx == 0:
-                                    p = text_frame.paragraphs[0]
-                                else:
-                                    p = text_frame.add_paragraph()
-                                p.text = rec
-                                p.font.name = "Arial"
-                                p.font.size = Cm(0.3170454545454545)
-                                p.word_wrap = True  # Ensure text wrapping within the text box
+            if severity in TEXT_BOX_PARAMS:
+                for i, (tb_h, tb_w, hp, vp) in enumerate(TEXT_BOX_PARAMS[severity]):
+                    text_box = slide.shapes.add_textbox(START_X + hp, current_y + vp, tb_w, tb_h)
+                    text_frame = text_box.text_frame
+                    text_frame.clear()  # Clear default placeholder text
 
-                current_y += img_height + SPACING
+                    if i == 0:  # First text box
+                        first_text = extract_first_text(condition, severity)
+                        add_text_with_formatting(text_frame, first_text)
+                    elif i == 1:  # Recommendation text box
+                        recommendations = extract_recommendations(condition, severity)
+                        for idx, rec in enumerate(recommendations.split('\n')):
+                            if idx == 0:
+                                p = text_frame.paragraphs[0]
+                            else:
+                                p = text_frame.add_paragraph()
+                            p.text = rec
+                            p.font.name = "Arial"
+                            p.font.size = Cm(0.3170454545454545)
+                            p.word_wrap = True  # Ensure text wrapping within the text box
+
+            current_y += img_height + SPACING
+
+        return slide_index, current_y
+
+    # Insert concern conditions first
+    current_slide_index, current_y = insert_conditions(concern_conditions, START_SLIDE_INDEX, START_Y)
+    # Insert other conditions next
+    insert_conditions(other_conditions, current_slide_index, current_y)
 
     prs.save(output_ppt_path)
     print(f"✅ Parallelogram Images and Textboxes inserted for patient {patient_id}")
 
-    # Call delete_empty_slides after inserting images
-    delete_empty_slides(output_ppt_path)
+
