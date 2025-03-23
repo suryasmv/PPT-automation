@@ -1,21 +1,30 @@
-patients_folder = ""
+patients_folder = r""
 
-lifeStyle_template = ""
+lifeStyle_template = r""
 
-generated_outputs = ""
+generated_outputs = r""
 
-scoring_charts = ""
+scoring_charts = r""
 
-input_parallelograms = "" 
+input_parallelograms = r""
 
-RECOMMENDATIONS_FILE = ""
+RECOMMENDATIONS_FILE = r""
 
-FIRST_TEXT_FILE = ""
+FIRST_TEXT_FILE = r""
 
-DIET_FILE = ""
+DIET_FILE = r""
 
-DIET_PICTURES = ""
+DIET_PICTURES = r""
 
-VITAMIN_SHEET_FILE = ""
+GENERATED_OUTPUTS = r""
 
-GENERATED_OUTPUTS = ""
+MALE_FITNESS_EXCELL = r""
+
+FEMALE_FITNESS_EXCELL = r""
+
+image_paths = {
+        "": r"",
+        "": r"",
+        "": r"",
+        "": r""
+}

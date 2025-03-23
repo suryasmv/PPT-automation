@@ -1,8 +1,8 @@
 import os
 from pptx import Presentation
-from pptx.util import Cm
+from pptx.util import Cm, Pt
 import openpyxl
-from config import VITAMIN_SHEET_FILE, GENERATED_OUTPUTS
+from config import GENERATED_OUTPUTS, patients_folder as PF
 import pandas as pd
 
 # Define text box parameters for each Risk level
@@ -24,7 +24,9 @@ TEXT_BOX_PARAMS_RISK = {
     ]
 }
 
-def add_text_boxes_on_slide(prs, slide_index):
+def add_text_boxes_on_slide(prs, slide_index, patient_code):
+    VITAMIN_SHEET_FILE = os.path.join(PF, patient_code, f"{patient_code}_vitamin_sheet.xlsx")
+
     # Read the Excel file to dynamically fetch risk_dict and risk_columns_dict
     df = pd.read_excel(VITAMIN_SHEET_FILE)
 
@@ -53,9 +55,15 @@ def add_text_boxes_on_slide(prs, slide_index):
     # Function to add text to a text box with bullet points
     def add_bullet_points(text_box, items, font_name, font_size, bold=False):
         text_frame = text_box.text_frame
-        text_frame.clear()
-        for item in items:
-            p = text_frame.add_paragraph()
+        text_frame.clear()  # Clear any existing text
+
+        for idx, item in enumerate(items):
+            if idx == 0:
+                # Use the default paragraph for the first bullet point
+                p = text_frame.paragraphs[0]
+            else:
+                # Add a new paragraph for subsequent bullet points
+                p = text_frame.add_paragraph()
             p.text = item
             p.font.name = font_name
             p.font.size = font_size
@@ -110,7 +118,7 @@ def add_text_boxes_on_slide(prs, slide_index):
                     text_box,
                     conditions_text_1,
                     font_name="Arial",
-                    font_size=Cm(0.35227272727272724),
+                    font_size=Pt(11),
                     bold=True
                 )
             elif i == 1:  # Second box
@@ -118,7 +126,7 @@ def add_text_boxes_on_slide(prs, slide_index):
                     text_box,
                     conditions_text_2,
                     font_name="Arial",
-                    font_size=Cm(0.3170454545454545),
+                    font_size=Pt(11),
                     bold=True
                 )
             else:  # Third box
@@ -127,7 +135,7 @@ def add_text_boxes_on_slide(prs, slide_index):
                     risk_columns,
                     items_per_line,
                     font_name="Arial",
-                    font_size=Cm(0.35227272727272724),
+                    font_size=Pt(9),
                     bold=True,
                     italic=True
                 )
@@ -140,6 +148,6 @@ def update_vitamin_details(patient_id):
         return
 
     prs = Presentation(ppt_path)
-    add_text_boxes_on_slide(prs, slide_index=38)  # Add to the 39th slide (index 38)
+    add_text_boxes_on_slide(prs, slide_index=38, patient_code=patient_id)  # Add to the 39th slide (index 38)
     prs.save(ppt_path)
     print(f"✅ Vitamin details updated for patient {patient_id}")

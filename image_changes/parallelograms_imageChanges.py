@@ -1,7 +1,8 @@
 import os
 import pandas as pd
 from pptx import Presentation
-from pptx.util import Cm
+from pptx.util import Cm,Pt
+from pptx.enum.text import MSO_AUTO_SIZE
 from pptx.oxml.ns import qn
 from pptx.oxml import parse_xml
 from config import scoring_charts, input_parallelograms, generated_outputs as GO, RECOMMENDATIONS_FILE, FIRST_TEXT_FILE
@@ -14,11 +15,38 @@ IMAGE_SIZES = {
     "Low": (Cm(5), Cm(19.43))
 }
 
+LOW_LIST = [
+    # "Anemia",
+    "Arrhythmias",
+    "Cardiac_Health",
+    "Cardiomyopathy",
+    "Cholesterol_Disorders",
+    "Dementia",
+    "Diabetes",
+    "Fatty_Liver",
+    "Gall_stones",
+    "Gastritis",
+    "Glomerular_Diseases",
+    "Gut_Health",
+    # "Headaches",
+    "High_Blood_Pressure",
+    "Mood_Disorders",
+    "Muscular_health",
+    "Obesity",
+    # "Pancreatic_Disorders",
+    # "Parkinsons",
+    "Renal_stones",
+    "Allergies",
+    "Skin_Health",
+    "Stroke",
+    "Thyroid_Disorders"
+]
+
 # Text box sizes and positions
 TEXT_BOX_PARAMS = {
     "Moderate": [
         (Cm(1.38), Cm(15.36), Cm(2.8), Cm(1.23)),  # 1st text box
-        (Cm(2.71), Cm(10), Cm(2.98), Cm(3.57))  # 2nd text box (Recommendations)
+        (Cm(2.71), Cm(10), Cm(2.98), Cm(3.25))  # 2nd text box (Recommendations)
     ],
     "Mild": [
         (Cm(1.32), Cm(15.38), Cm(2.8), Cm(1.27)),  # 1st text box
@@ -105,14 +133,14 @@ def add_text_with_formatting(text_frame, text):
     p.clear()
     run = p.add_run()
     run.font.name = "Arial"
-    run.font.size = Cm(0.3170454545454545)  # Arial 9
+    run.font.size = Pt(9)  # Arial 9
 
     words = text.split()
     for word in words:
         run = p.add_run()
         run.text = word + ' '
         run.font.name = "Arial"
-        run.font.size = Cm(0.3170454545454545)
+        run.font.size = Pt(9)
         if word.strip(',') in BOLD_WORDS:
             run.font.bold = True
 
@@ -134,6 +162,9 @@ def insert_parallelogram_images(patient_id):
         print(f"⚠️ No conditions found for patient {patient_id}")
         return
 
+    # Track processed conditions
+    processed_conditions = set()
+
     def insert_conditions(conditions, slide_index, start_y):
         current_y = start_y
         slide = prs.slides[slide_index]
@@ -142,6 +173,8 @@ def insert_parallelogram_images(patient_id):
         conditions.sort(key=lambda x: SEVERITY_ORDER.index(x[0]))
 
         for severity, condition in conditions:
+            processed_conditions.add(condition)  # Track condition
+
             image_path = find_condition_image(severity, condition)
             if not image_path:
                 print(f"❌ Image not found for {condition} ({severity})")
@@ -168,6 +201,8 @@ def insert_parallelogram_images(patient_id):
                         first_text = extract_first_text(condition, severity)
                         add_text_with_formatting(text_frame, first_text)
                     elif i == 1:  # Recommendation text box
+                        text_frame.word_wrap = True
+                        text_frame.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
                         recommendations = extract_recommendations(condition, severity)
                         for idx, rec in enumerate(recommendations.split('\n')):
                             if idx == 0:
@@ -176,8 +211,7 @@ def insert_parallelogram_images(patient_id):
                                 p = text_frame.add_paragraph()
                             p.text = rec
                             p.font.name = "Arial"
-                            p.font.size = Cm(0.3170454545454545)
-                            p.word_wrap = True  # Ensure text wrapping within the text box
+                            p.font.size = Pt(9)
 
             current_y += img_height + SPACING
 
@@ -186,9 +220,16 @@ def insert_parallelogram_images(patient_id):
     # Insert concern conditions first
     current_slide_index, current_y = insert_conditions(concern_conditions, START_SLIDE_INDEX, START_Y)
     # Insert other conditions next
-    insert_conditions(other_conditions, current_slide_index, current_y)
+    current_slide_index, current_y = insert_conditions(other_conditions, current_slide_index, current_y)
+
+    # Identify missing low conditions
+    missing_low_conditions = [( "Low", condition) for condition in LOW_LIST if condition not in processed_conditions]
+
+    # Insert missing low conditions
+    insert_conditions(missing_low_conditions, current_slide_index, current_y)
 
     prs.save(output_ppt_path)
     print(f"✅ Parallelogram Images and Textboxes inserted for patient {patient_id}")
+
 
 

@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from pptx import Presentation
-from pptx.util import Cm
+from pptx.util import Cm,Pt
 from config import scoring_charts, DIET_PICTURES as IMAGE_PATH, DIET_FILE
 
 START_SLIDE = 26  # 0-based index (27th slide)
@@ -105,6 +105,7 @@ def add_recommendation_textbox(slide, x_pos, y_pos, card_width, card_height, con
     text_frame.clear()  # Clear default placeholder text
 
     recommendations = extract_recommendations(condition, severity)
+    text_frame.word_wrap = True
     for idx, rec in enumerate(recommendations.split('\n')):
         if idx == 0:
             p = text_frame.paragraphs[0]
@@ -112,8 +113,8 @@ def add_recommendation_textbox(slide, x_pos, y_pos, card_width, card_height, con
             p = text_frame.add_paragraph()
         p.text = rec
         p.font.name = "Arial"
-        p.font.size = Cm(0.35227272727272724)
-        p.word_wrap = True  # Ensure text wrapping within the text box
+        # Adjust font size based on text length
+        p.font.size = Pt(11)
 
 def add_diet_images(ppt_file, patient_id):
     """
