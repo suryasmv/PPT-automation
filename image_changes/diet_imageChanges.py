@@ -4,10 +4,10 @@ from pptx import Presentation
 from pptx.util import Cm,Pt
 from config import scoring_charts, DIET_PICTURES as IMAGE_PATH, DIET_FILE
 
-START_SLIDE = 26  # 0-based index (27th slide)
-END_SLIDE = 29    # 0-based index (30th slide)
-OTHER_START_SLIDE = 30  # 0-based index (31st slide)
-OTHER_END_SLIDE = 34    # 0-based index (35th slide)
+START_SLIDE = 28  # 0-based index (27th slide)
+END_SLIDE = 31   # 0-based index (30th slide)
+OTHER_START_SLIDE = 32  # 0-based index (31st slide)
+OTHER_END_SLIDE = 36    # 0-based index (35th slide)
 START_X = Cm(1)
 START_Y = Cm(9)
 END_Y = Cm(27)
@@ -73,7 +73,7 @@ def extract_recommendations(condition, severity):
             points = rec.split('$')
             for point in points:
                 if point.strip():
-                    formatted_recommendations.append(f"\u2022 {point.strip().capitalize()}")
+                    formatted_recommendations.append(f"\u2022 {point.strip()}")
         return "\n".join(formatted_recommendations)
     return ""
 

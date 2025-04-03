@@ -63,8 +63,10 @@ START_X = Cm(0.7)
 START_Y = Cm(4.5)
 MAX_Y = Cm(27)
 SPACING = Cm(0.5)
-START_SLIDE_INDEX = 8
-END_SLIDE_INDEX = 29
+CONCERN_START_SLIDE = 9
+CONCERN_END_SLIDE = 14
+OTHER_START_SLIDE = 15
+OTHER_END_SLIDE = 22
 SEVERITY_ORDER = ["Moderate to High", "Moderate", "Mild", "Low"]  # Priority order
 
 BOLD_WORDS = ['Moderate', 'Mild', 'Moderate to High']
@@ -116,7 +118,7 @@ def extract_recommendations(condition, severity):
             points = rec.split('$')
             for point in points:
                 if point.strip():
-                    formatted_recommendations.append(f"\u2022 {point.strip().capitalize()}")
+                    formatted_recommendations.append(f"\u2022 {point.strip()}")
         return "\n".join(formatted_recommendations)
     return ""
 
@@ -165,15 +167,16 @@ def insert_parallelogram_images(patient_id):
     # Track processed conditions
     processed_conditions = set()
 
-    def insert_conditions(conditions, slide_index, start_y):
+    def insert_conditions(conditions, start_slide, end_slide, start_y):
         current_y = start_y
+        slide_index = start_slide
         slide = prs.slides[slide_index]
 
         # Sort conditions by severity order
         conditions.sort(key=lambda x: SEVERITY_ORDER.index(x[0]))
 
         for severity, condition in conditions:
-            processed_conditions.add(condition)  # Track condition
+            processed_conditions.add(condition)
 
             image_path = find_condition_image(severity, condition)
             if not image_path:
@@ -183,8 +186,8 @@ def insert_parallelogram_images(patient_id):
             img_height, img_width = IMAGE_SIZES[severity]
             if current_y + img_height > MAX_Y:
                 slide_index += 1
-                if slide_index > END_SLIDE_INDEX:
-                    print("⚠️ Slide limit reached, stopping image insertion.")
+                if slide_index > end_slide:
+                    print(f"⚠️ Slide limit reached for current section (limit: {end_slide}), stopping.")
                     break
                 slide = prs.slides[slide_index]
                 current_y = START_Y
@@ -217,16 +220,16 @@ def insert_parallelogram_images(patient_id):
 
         return slide_index, current_y
 
-    # Insert concern conditions first
-    current_slide_index, current_y = insert_conditions(concern_conditions, START_SLIDE_INDEX, START_Y)
-    # Insert other conditions next
-    current_slide_index, current_y = insert_conditions(other_conditions, current_slide_index, current_y)
+    # Insert concern conditions in slides 9-14
+    _, _ = insert_conditions(concern_conditions, CONCERN_START_SLIDE, CONCERN_END_SLIDE, START_Y)
+    
+    # Insert other conditions in slides 15-29
+    current_slide, current_y = insert_conditions(other_conditions, OTHER_START_SLIDE, OTHER_END_SLIDE, START_Y)
 
-    # Identify missing low conditions
-    missing_low_conditions = [( "Low", condition) for condition in LOW_LIST if condition not in processed_conditions]
-
-    # Insert missing low conditions
-    insert_conditions(missing_low_conditions, current_slide_index, current_y)
+    # Add missing low conditions to the remaining space in other conditions section
+    missing_low_conditions = [(severity, condition) for severity, condition in [("Low", c) for c in LOW_LIST] 
+                            if condition not in processed_conditions]
+    insert_conditions(missing_low_conditions, current_slide, OTHER_END_SLIDE, current_y)
 
     prs.save(output_ppt_path)
     print(f"✅ Parallelogram Images and Textboxes inserted for patient {patient_id}")

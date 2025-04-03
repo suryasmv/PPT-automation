@@ -8,9 +8,10 @@ from image_changes.diet_imageChanges import add_diet_images
 from text_changes.change_VitaminDetails import update_vitamin_details
 from image_changes.risk_imageChanges import process_risk_images
 from text_changes.change_Gender_NutritionFitness import update_gender_nutrition_fitness
+from image_changes.intolerance_imageChanges import add_intolerance_details
 
 # Define patient names to process (one by one)
-selected_patients = ["2400182MGI"]
+selected_patients = ["KHINDNGPCSP3"]
 
 def copy_template_ppt(target_path):
     """Copies the actual PPT template to the target location for modifications."""
@@ -22,9 +23,13 @@ START_Y = 9 * 360000
 MAX_Y = 26 * 360000  
 
 def has_content(slide):
-    """Checks if a slide contains any shapes (images or textboxes) in the valid area."""
+    """Checks if a slide contains any shapes (images, textboxes, or tables) in the valid area."""
+    # Check for shapes in valid area
     for shape in slide.shapes:
-        if hasattr(shape, "top") and START_Y <= shape.top <= MAX_Y:
+        if hasattr(shape, "top") and shape.top is not None and START_Y <= shape.top <= MAX_Y:
+            return True
+        # Check specifically for tables
+        if shape.has_table:
             return True
     return False
 
@@ -81,10 +86,14 @@ def generate_patient_report(patient_code):
     print("📊 Risk images processed.")
 
     # Step 7: Update gender-based nutrition and fitness details
-    update_gender_nutrition_fitness(json_path, output_ppt_path)
-    print("🏋️ Gender-based nutrition & fitness details updated.")
+    # update_gender_nutrition_fitness(json_path, output_ppt_path)
+    # print("🏋️ Gender-based nutrition & fitness details updated.")
 
-    # Step 8: Delete empty slides
+    # Step 8: Add intolerance details
+    add_intolerance_details(patient_code)
+    print("🔍 Intolerance details added.")
+
+    # Step 9: Delete empty slides
     delete_empty_slides(output_ppt_path)
 
     print(f"✅ Report completed: {output_ppt_path}\n")

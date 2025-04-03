@@ -1,34 +1,44 @@
-import os
+import os, json
 from pptx import Presentation
 from pptx.util import Cm, Pt
 import openpyxl
-from config import GENERATED_OUTPUTS, patients_folder as PF
+from config import GENERATED_OUTPUTS, patients_folder as PF, RDA_FILE
 import pandas as pd
 
 # Define text box parameters for each Risk level
 TEXT_BOX_PARAMS_RISK = {
     3: [
-        (Cm(5), Cm(2.3), Cm(5.1), Cm(7.1)),
-        (Cm(5), Cm(2.3), Cm(5.1), Cm(9.2)),
-        (Cm(5), Cm(6), Cm(5.1), Cm(12.55))
+        (Cm(4.61), Cm(5.43), Cm(5.25), Cm(7.11)),
+        (Cm(4.61), Cm(5.43), Cm(5.25), Cm(13.12)),
     ],
     2: [
-        (Cm(5), Cm(2.5), Cm(12.8), Cm(8.67)),
-        (Cm(5), Cm(2.5), Cm(12.8), Cm(12.8)),
-        (Cm(5), Cm(3.4), Cm(12.8), Cm(15.5))
+        (Cm(4.61), Cm(4.58), Cm(13.07), Cm(8.7)),
+        (Cm(4.61), Cm(4.58), Cm(13.07), Cm(14.2)),
     ],
     1: [
-        (Cm(5), Cm(2.5), Cm(20.5), Cm(7.01)),
-        (Cm(5), Cm(2.5), Cm(20.5), Cm(10.8)),
-        (Cm(5), Cm(3.8), Cm(20.5), Cm(14.8))
+        (Cm(4.61), Cm(4.43), Cm(20.79), Cm(6.98)),
+        (Cm(4.61), Cm(4.43), Cm(20.79), Cm(13.11)),
     ]
 }
 
 def add_text_boxes_on_slide(prs, slide_index, patient_code):
     VITAMIN_SHEET_FILE = os.path.join(PF, patient_code, f"{patient_code}_vitamin_sheet.xlsx")
+    JSON_PATH = os.path.join(PF, patient_code, f"{patient_code}.json")
 
-    # Read the Excel file to dynamically fetch risk_dict and risk_columns_dict
+    if not os.path.exists(VITAMIN_SHEET_FILE) or not os.path.exists(RDA_FILE) or not os.path.exists(JSON_PATH):
+        print(f"❌ Required files not found for patient {patient_code}")
+        return False
+
+    # Read the Excel files and JSON
     df = pd.read_excel(VITAMIN_SHEET_FILE)
+    rda_df = pd.read_excel(RDA_FILE)
+    
+    # Get patient gender from JSON
+    with open(JSON_PATH, 'r') as file:
+        json_data = json.load(file)
+    json_data = {k.lower(): v for k, v in json_data.items()}
+    gender = json_data.get("gender", "Female")  # Default to Female if not found
+    rda_column = 'Female (mg/day)' if gender.lower() == 'female' else 'Male (mg/day)'
 
     # Initialize dictionaries for Risk levels
     risk_dict = {3: [], 2: [], 1: []}
@@ -38,13 +48,15 @@ def add_text_boxes_on_slide(prs, slide_index, patient_code):
     for _, row in df.iterrows():
         risk_level = row['Risk']
         if risk_level in risk_dict:
-            # Append conditions to the risk dictionary
-            risk_dict[risk_level].append(row['Condition'])
-
-            # Collect unique strings from the specified columns
-            for col in ['HOM_DAM', 'HOM_TOL', 'HET_DAM']:
-                if pd.notna(row[col]):
-                    risk_columns_dict[risk_level].update(map(str.strip, str(row[col]).split(',')))
+            condition = row['Condition']
+            # Find matching nutrient in RDA file
+            rda_match = rda_df[rda_df['Nutrient'].str.contains(fr'\b{condition}\b', case=False, na=False, regex=True)]
+            if not rda_match.empty:
+                rda_value = rda_match.iloc[0][rda_column]
+                condition_with_rda = f"{condition} ({rda_value})"
+                risk_dict[risk_level].append(condition_with_rda)
+            else:
+                risk_dict[risk_level].append(condition)
 
     # Convert sets to sorted lists for consistent ordering
     risk_columns_dict = {k: sorted(v) for k, v in risk_columns_dict.items()}
@@ -99,7 +111,7 @@ def add_text_boxes_on_slide(prs, slide_index, patient_code):
         conditions_text_1 = []
         conditions_text_2 = []
         current_height = 0
-        max_height = Cm(5)  # Approximate height limit for the first text box
+        max_height = Cm(4)  # Approximate height limit for the first text box
 
         for condition in conditions:
             if current_height + Cm(0.5) <= max_height:  # Approximate height per bullet point
@@ -129,23 +141,14 @@ def add_text_boxes_on_slide(prs, slide_index, patient_code):
                     font_size=Pt(11),
                     bold=True
                 )
-            else:  # Third box
-                add_wrapped_text_with_lines(
-                    text_box,
-                    risk_columns,
-                    items_per_line,
-                    font_name="Arial",
-                    font_size=Pt(9),
-                    bold=True,
-                    italic=True
-                )
 
 def update_vitamin_details(patient_id):
     ppt_path = os.path.join(GENERATED_OUTPUTS, f"{patient_id}_report.pptx")
 
-    if not os.path.exists(ppt_path):
-        print(f"❌ Report not found for patient {patient_id}")
-        return
+    prs = Presentation(ppt_path)
+    if add_text_boxes_on_slide(prs, slide_index=38, patient_code=patient_id):  # Add to the 39th slide (index 38)
+        prs.save(ppt_path)
+        print(f"✅ Vitamin details updated for patient {patient_id}")
 
     prs = Presentation(ppt_path)
     add_text_boxes_on_slide(prs, slide_index=38, patient_code=patient_id)  # Add to the 39th slide (index 38)
